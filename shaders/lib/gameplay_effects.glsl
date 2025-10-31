@@ -66,13 +66,38 @@ void applyGameplayEffects(inout vec3 color, in vec2 texcoord, float noise){
             scale.xy = (isEyeInWater == 1 ? vec2(0.3) : vec2(0.5, 0.25 + (exitWater*exitWater)*0.25 ) ) * vec2(aspectRatio,1.0);
             scale.z = isEyeInWater == 1 ? 0.0 : exitWater;
 
-
             float waterDrops = texture2D(noisetex, (texcoord - vec2(0.0, scale.z)) * scale.xy).r ;
             if(isEyeInWater == 1) waterDrops = waterDrops*waterDrops * 0.3;
             if(isEyeInWater == 0 && exitWater > 0.0) waterDrops = sqrt(min(max(waterDrops - (1.0-sqrt(exitWater))*0.7,0.0) * (1.0 + exitWater),1.0)) * 0.3;
 
             // apply distortion effects for exiting water and under water
-            distortmask = max(distortmask, waterDrops);
+
+            // --- Radial wave / ripple when entering or exiting water ---
+            // center-based ripple expands outward when exitWater moves from 1->0 (exiting)
+            vec2 center = vec2(0.5);
+            float dist = length(texcoord - center);
+            // progress: 0 when fully in water, 1 when fully out (approx)
+            float prog = clamp(1.0 - exitWater, 0.0, 1.0);
+
+            // expanding ring
+            float maxRadius = 1.5; // how far the ring can travel
+            float radius = prog * maxRadius;
+            // a Gaussian-shaped ring with a sine ripple inside
+            float ringWidth = 0.06;
+            float ringAtten = exp(-pow((dist - radius) / ringWidth, 2.0));
+            float ringWave = sin((dist - radius) * 60.0) * 0.6;
+            float ring = ringAtten * ringWave * smoothstep(0.0, 1.0, prog);
+
+            // subtle inner wobble while inside water
+            float inner = 0.0;
+            if(isEyeInWater == 1){
+                float t = frameTimeCounter * 6.0;
+                inner = exp(-dist * 6.0) * 0.22 * sin(t + dist * 20.0) * exitWater;
+            }
+
+            float waveMask = max(ring, inner);
+
+            distortmask = max(distortmask, max(waterDrops, waveMask));
         }
     #endif
 
