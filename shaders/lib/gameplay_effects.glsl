@@ -11,6 +11,7 @@
 #endif
 
 uniform float exitWater;
+uniform float water_exit_foam; // control strength of foam speckles along the ripple
 // uniform float exitPowderSnow;
 uniform int isEyeInWater;
 
@@ -44,6 +45,7 @@ void applyGameplayEffects(inout vec3 color, in vec2 texcoord, float noise){
     #endif
 
     float distortmask = 0.0;
+    float waterFoamMask = 0.0;
     float vignette = sqrt(clamp(dot(texcoord*2.0 - 1.0, texcoord*2.0 - 1.0) * 0.5, 0.0, 1.0));
 
     //////////////////////// DAMAGE DISTORTION /////////////////////
@@ -101,6 +103,25 @@ void applyGameplayEffects(inout vec3 color, in vec2 texcoord, float noise){
 
             float waveMask = max(ring, inner);
 
+            // --- Foam speckles along the ring ---
+            // sample the noise along the circumference to produce foam particles
+            float foam = 0.0;
+            // Only compute foam where the ring attenuation is significant
+            if(ringAtten > 0.001) {
+                // angle around center
+                float angle = atan(texcoord.y - center.y, texcoord.x - center.x);
+                // map angle to [0,1]
+                float angU = (angle / (3.14159265 * 2.0)) + 0.5;
+                // sample noise with higher frequency along circumference and slight time offset
+                vec2 foamUV = vec2(angU * 8.0 + frameTimeCounter * 0.12, radius * 0.5);
+                float foamNoise = texture2D(noisetex, fract(foamUV)).r;
+                // threshold and sharpen to get particle-like spots
+                float foamSpots = smoothstep(0.6, 0.84, foamNoise);
+                foam = foamSpots * ringAtten * water_exit_foam;
+            }
+
+            waterFoamMask = foam;
+
             distortmask = max(distortmask, max(waterDrops, waveMask));
         }
     #endif
@@ -112,7 +133,15 @@ void applyGameplayEffects(inout vec3 color, in vec2 texcoord, float noise){
 
     #ifdef WATER_ON_CAMERA_EFFECT
         // apply the distorted water color to the scene, but revert back to before when it ends
-        if(exitWater > 0.01) color = distortedColor;
+        if(exitWater > 0.01) {
+            vec3 finalColor = distortedColor;
+            // add foam highlights where the ring produced foam speckles
+            if(waterFoamMask > 0.001){
+                // foam brightens towards white; clamp to avoid extreme blowout
+                finalColor = mix(finalColor, vec3(1.0), clamp(waterFoamMask * 0.9, 0.0, 1.0));
+            }
+            color = finalColor;
+        }
     #endif
 
     //////////////////////// APPLY COLOR EFFECTS /////////////////////
