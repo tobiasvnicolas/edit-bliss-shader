@@ -79,20 +79,24 @@ void applyGameplayEffects(inout vec3 color, in vec2 texcoord, float noise){
             // progress: 0 when fully in water, 1 when fully out (approx)
             float prog = clamp(1.0 - exitWater, 0.0, 1.0);
 
-            // expanding ring
-            float maxRadius = 1.5; // how far the ring can travel
-            float radius = prog * maxRadius;
-            // a Gaussian-shaped ring with a sine ripple inside
-            float ringWidth = 0.06;
+            // expanding ring — stronger, wider and longer-lasting
+            float maxRadius = 4.0; // how far the ring can travel (bigger)
+            // use a gentle ease so the ring expands perceptually longer
+            float easedProg = pow(prog, 0.7);
+            float radius = easedProg * maxRadius;
+            // a wider Gaussian-shaped ring with a lower-frequency sine ripple inside
+            float ringWidth = 0.12;
             float ringAtten = exp(-pow((dist - radius) / ringWidth, 2.0));
-            float ringWave = sin((dist - radius) * 60.0) * 0.6;
-            float ring = ringAtten * ringWave * smoothstep(0.0, 1.0, prog);
+            float ringWave = sin((dist - radius) * 30.0) * 1.2; // bigger amplitude, lower frequency
+            // amplitude falloff so the ring is visible for longer as exitWater decays
+            float ringFade = smoothstep(0.0, 1.0, easedProg) * (1.0 - pow(exitWater, 0.5));
+            float ring = ringAtten * ringWave * ringFade;
 
             // subtle inner wobble while inside water
             float inner = 0.0;
             if(isEyeInWater == 1){
-                float t = frameTimeCounter * 6.0;
-                inner = exp(-dist * 6.0) * 0.22 * sin(t + dist * 20.0) * exitWater;
+                float t = frameTimeCounter * 8.5;
+                inner = exp(-dist * 4.0) * 0.45 * sin(t + dist * 16.0) * exitWater; // stronger inner wobble
             }
 
             float waveMask = max(ring, inner);
