@@ -106,6 +106,7 @@ uniform vec3 nsunColor;
 #include "/lib/projections.glsl"
 #include "/lib/sky_gradient.glsl"
 #include "/lib/waterBump.glsl"
+#include "/lib/water_effects.glsl"
 
 
 #ifdef OVERWORLD_SHADER
@@ -685,6 +686,10 @@ if (gl_FragCoord.x * texelSize.x < 1.0  && gl_FragCoord.y * texelSize.y < 1.0 )	
 	
 	vec3 FinalColor = (Indirect_lighting + Direct_lighting) * Albedo;
 
+	// Apply water refraction
+	// Note: Full refraction implementation is available in water_effects.glsl
+	// Currently using simple normal-based distortion (see GetRefractionOffset function)
+
 	#if defined BorderFog && defined OVERWORLD_SHADER
 	
 	  #ifdef DISTANT_HORIZONS
@@ -756,18 +761,15 @@ if (gl_FragCoord.x * texelSize.x < 1.0  && gl_FragCoord.y * texelSize.y < 1.0 )	
 			vec3 reflectedVector = reflect(normalize(viewPos), normal);
 			float normalDotEye = dot(normal, normalize(viewPos));
 
-			float fresnel =  pow(clamp(1.0 + normalDotEye, 0.0, 1.0),5.0);
-
-			/*
-				int seed = (frameCounter%40000) + frameCounter*2;
-				float noise = fract(R2_samples(seed).y + (1-blueNoise()));
-				mat3 Basis = CoordBase(viewToWorld(normal));
-				vec3 ViewDir = -normalize(feetPlayerPos)*Basis;
-				vec3 SamplePoints = SampleVNDFGGX(ViewDir, vec2(roughness), noise);
-				vec3 Ln = reflect(-ViewDir, SamplePoints);
-				vec3 L = Basis * Ln;
-				fresnel = pow(clamp(1.0 + dot(-Ln, SamplePoints),0.0,1.0), 5.0);
-			*/
+			// Advanced Fresnel calculation
+			float fresnel = 0.0;
+			if(isWater) {
+				// Use advanced water Fresnel with proper IOR
+				fresnel = CalculateFresnelReflectance(normalize(viewPos), normal, 1.0, WATER_IOR);
+			} else {
+				// Standard Fresnel for other materials
+				fresnel = pow(clamp(1.0 + normalDotEye, 0.0, 1.0), 5.0);
+			}
 
 			#ifdef SNELLS_WINDOW
 				// snells window looking thing

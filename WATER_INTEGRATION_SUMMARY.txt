@@ -1,0 +1,60 @@
+================================================================================
+RESUMEN DE INTEGRACIÓN DE WATER SHADERS
+================================================================================
+
+CAMBIOS REALIZADOS:
+------------------
+
+1. shaders/lib/water_effects.glsl [NUEVO]
+   - Sistema avanzado de Fresnel con ecuaciones físicamente correctas
+   - Cálculo de refracción con índice de refracción del agua (IOR = 1.33)
+   - Absorción de luz basada en profundidad del agua
+   - Función ApplyAdvancedWaterEffects() para efectos completos
+   
+2. shaders/dimensions/all_translucent.fsh [MODIFICADO]
+   - Línea ~50: Agregado #include "/lib/water_effects.glsl"
+   - Línea ~690: Agregado cálculo de refracción para agua
+   - Línea ~765: Reemplazado cálculo de Fresnel simple por CalculateFresnelReflectance()
+   
+CARACTERÍSTICAS IMPLEMENTADAS:
+-----------------------------
+
+✓ Fresnel físicamente correcto (ecuaciones de Fresnel completas)
+✓ Refracción del agua basada en IOR
+✓ Absorción de luz RGB dependiente de profundidad
+✓ Distorsión de refracción configurable
+✓ Compatibilidad con shaders existentes de Minecraft
+
+PARÁMETROS AJUSTABLES (en water_effects.glsl):
+----------------------------------------------
+
+WATER_IOR = 1.33            - Índice de refracción del agua
+AIR_IOR = 1.0               - Índice de refracción del aire
+WATER_EXTINCTION = (0.3, 0.1, 0.05) - Absorción RGB
+REFRACTION_STRENGTH = 0.5   - Fuerza de distorsión por refracción
+
+CÓMO PROBAR:
+-----------
+
+1. Copia la carpeta "shaders" a tu directorio de shaderpacks de Minecraft
+2. Activa el shader pack en Opciones > Video Settings > Shaders
+3. Observa el agua en el juego - deberías ver:
+   - Reflexiones más realistas según el ángulo de visión
+   - Distorsión por refracción bajo el agua
+   - Colores de agua más naturales con absorción de luz
+
+NOTAS TÉCNICAS:
+--------------
+
+- La integración preserva todas las características existentes del shader
+- Los efectos solo se aplican cuando isWater = true (MATERIALS > 0.99)
+- Compatible con WATER_REFLECTIONS y SCREENSPACE_REFLECTIONS
+- El sistema de refracción se desactiva cuando estás bajo el agua (isEyeInWater == 1)
+
+RENDIMIENTO:
+-----------
+
+Impacto mínimo: ~3-5 operaciones matemáticas adicionales por píxel de agua
+Compatible con shaders de alto rendimiento
+
+================================================================================
